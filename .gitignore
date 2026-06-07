@@ -1,0 +1,3 @@
+signage/uploads/*
+!signage/uploads/index.html
+!signage/uploads/.gitkeep
