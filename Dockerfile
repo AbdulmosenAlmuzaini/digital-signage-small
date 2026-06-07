@@ -1,21 +1,27 @@
 FROM php:8.2-apache
 
 RUN docker-php-ext-install pdo pdo_mysql
-
-# تفعيل mod_rewrite (ليس ضرورياً جداً هنا لكن مفيد)
 RUN a2enmod rewrite
-
-# Update Apache to use the PORT environment variable (Railway requirement)
-ENV PORT=80
-RUN sed -s -i -e "s/80/\${PORT}/" /etc/apache2/ports.conf /etc/apache2/sites-available/*.conf
-
-WORKDIR /var/www/html
 
 # Increase upload limits for video files
 RUN echo "upload_max_filesize = 500M\npost_max_size = 500M\nmemory_limit = 512M" > /usr/local/etc/php/conf.d/uploads.ini
+
+WORKDIR /var/www/html
 
 # Copy the application files into the container for production
 COPY ./signage /var/www/html/
 
 # Ensure proper permissions for uploads
 RUN chown -R www-data:www-data /var/www/html
+
+# Set default PORT for local development, Railway will override this
+ENV PORT=80
+
+# Create an entrypoint script to dynamically replace the port at runtime
+RUN echo '#!/bin/bash\n\
+sed -i "s/Listen .*/Listen ${PORT}/" /etc/apache2/ports.conf\n\
+sed -i "s/<VirtualHost \*:.*>/<VirtualHost \*:${PORT}>/" /etc/apache2/sites-available/000-default.conf\n\
+exec apache2-foreground\n\
+' > /usr/local/bin/start.sh && chmod +x /usr/local/bin/start.sh
+
+CMD ["/usr/local/bin/start.sh"]
